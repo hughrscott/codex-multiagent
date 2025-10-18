@@ -248,6 +248,16 @@ async def checks_wait_for_ci(request: Request):
     data = await request.json()
     return JSONResponse({"completed": True, "success": True})
 
+# allow GET, POST, HEAD, OPTIONS (Claude probes POST/HEAD/OPTIONS)
+@app.api_route("/.well-known/manifest.json", methods=["GET", "POST", "HEAD", "OPTIONS"])
+def manifest():
+    return JSONResponse(MANIFEST_BODY)
+
+# explicit OPTIONS handler (some clients want a 200/204 preflight)
+@app.options("/.well-known/manifest.json")
+def manifest_options():
+    return JSONResponse({}, status_code=200)
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "3333"))
