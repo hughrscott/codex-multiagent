@@ -1,4 +1,3 @@
-
 import os
 import subprocess
 from pathlib import Path
@@ -10,12 +9,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ------------------------------------------------------------------
-# App & Config
-# ------------------------------------------------------------------
 app = FastAPI()
 
-# Allow everything (safe here because auth is via GitHub token on tool calls)
+# allow-all CORS (ok here; sensitive ops are gated by GH token on tool)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,34 +19,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# PROJECT_ROOT is the repo root (folder above codex-mcp/)
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-# ------------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------------
-def run(cmd: list[str], cwd: Path | None = None) -> dict:
-    """Run a subprocess and capture stdout/stderr safely."""
+def run(cmd, cwd=None):
     try:
         res = subprocess.run(
             cmd, cwd=cwd or PROJECT_ROOT, capture_output=True, text=True, check=True
         )
         return {"ok": True, "stdout": res.stdout, "stderr": res.stderr}
     except subprocess.CalledProcessError as e:
-        return {
-            "ok": False,
-            "stdout": e.stdout,
-            "stderr": e.stderr,
-            "returncode": e.returncode,
-        }
-
+        return {"ok": False, "stdout": e.stdout, "stderr": e.stderr, "returncode": e.returncode}
 
 def ensure_parent(path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
 
-
 def allowed_path(p: Path) -> bool:
-    """Only allow writes under src/, tests/, or docs/ relative to project root."""
     allowed_roots = [PROJECT_ROOT / "src", PROJECT_ROOT / "tests", PROJECT_ROOT / "docs"]
     rp = p.resolve()
     for root in allowed_roots:
@@ -58,15 +41,10 @@ def allowed_path(p: Path) -> bool:
             if rp.is_relative_to(root.resolve()):
                 return True
         except AttributeError:
-            # Python < 3.9 fallback
             if str(rp).startswith(str(root.resolve())):
                 return True
     return False
 
-
-# ------------------------------------------------------------------
-# Manifest & Health
-# ------------------------------------------------------------------
 MANIFEST_BODY = {
     "name": "codex-mcp",
     "version": "0.1.0",
@@ -170,22 +148,17 @@ MANIFEST_BODY = {
     ],
 }
 
-
-# Allow BOTH GET and POST for the manifest (some clients probe POST)
+# allow GET and POST (some clients probe POST)
 @app.api_route("/.well-known/manifest.json", methods=["GET", "POST"])
 def manifest():
     return JSONResponse(MANIFEST_BODY)
 
-
-# Quiet health check at root
+# health
 @app.get("/")
 def root_ok():
     return {"ok": True}
 
-
-# ------------------------------------------------------------------
-# Tool routes
-# ------------------------------------------------------------------
+# tools
 @app.post("/tools/fs.read")
 async def fs_read(request: Request):
     data = await request.json()
@@ -198,7 +171,6 @@ async def fs_read(request: Request):
         return JSONResponse({"ok": False, "error": "not_utf8", "path": str(path)})
     return JSONResponse({"ok": True, "content": content})
 
-
 @app.post("/tools/fs.write")
 async def fs_write(request: Request):
     data = await request.json()
@@ -208,7 +180,6 @@ async def fs_write(request: Request):
     ensure_parent(path)
     path.write_text(data["content"], encoding="utf-8")
     return JSONResponse({"ok": True})
-
 
 @app.post("/tools/tests.pytest")
 async def tests_pytest(request: Request):
@@ -223,14 +194,12 @@ async def tests_pytest(request: Request):
     result = run(["pytest"] + args, cwd=PROJECT_ROOT)
     return JSONResponse(result)
 
-
 @app.post("/tools/git.branch")
 async def git_branch(request: Request):
     data = await request.json()
     name = data["name"]
     result = run(["git", "checkout", "-B", name], cwd=PROJECT_ROOT)
     return JSONResponse(result)
-
 
 @app.post("/tools/git.commit")
 async def git_commit(request: Request):
@@ -239,7 +208,6 @@ async def git_commit(request: Request):
     run(["git", "add", "-A"], cwd=PROJECT_ROOT)
     result = run(["git", "commit", "-m", msg], cwd=PROJECT_ROOT)
     return JSONResponse(result)
-
 
 @app.post("/tools/git.push")
 async def git_push(request: Request):
@@ -254,11 +222,9 @@ async def git_push(request: Request):
     result = run(args, cwd=PROJECT_ROOT)
     return JSONResponse(result)
 
-
 @app.post("/tools/github.create_pr")
 async def github_create_pr(request: Request):
     import requests
-
     data = await request.json()
     owner = data["owner"]
     repo = data["repo"]
@@ -266,36 +232,25 @@ async def github_create_pr(request: Request):
     base = data["base"]
     title = data["title"]
     body = data.get("body", "")
-
     token = os.getenv("GITHUB_TOKEN")
     if not token:
         return JSONResponse({"ok": False, "error": "missing_GITHUB_TOKEN_env"})
-
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls"
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
-    resp = requests.post(
-        url, headers=headers, json={"title": title, "head": head, "base": base, "body": body}
-    )
+    resp = requests.post(url, headers=headers, json={"title": title, "head": head, "base": base, "body": body})
     if resp.status_code >= 400:
         return JSONResponse({"ok": False, "status": resp.status_code, "resp": resp.text})
     pr = resp.json()
     return JSONResponse({"ok": True, "number": pr.get("number"), "url": pr.get("html_url")})
 
-
 @app.post("/tools/checks.wait_for_ci")
 async def checks_wait_for_ci(request: Request):
-    # Minimal stub; in production you can poll GitHub Checks API here.
     data = await request.json()
     return JSONResponse({"completed": True, "success": True})
 
-
-# ------------------------------------------------------------------
-# Main entry
-# ------------------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
-
     port = int(os.getenv("PORT", "3333"))
-    host = os.getenv("HOST", "0.0.0.0")  # bind to all interfaces for hosting
+    host = os.getenv("HOST", "0.0.0.0")
     print(f"Project root: {PROJECT_ROOT}")
     uvicorn.run(app, host=host, port=port)
