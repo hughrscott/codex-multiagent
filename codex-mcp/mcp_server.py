@@ -1,9 +1,7 @@
 
 import os
-import json
 import subprocess
 from pathlib import Path
-from typing import Any, Dict
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,7 +30,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # Helpers
 # ------------------------------------------------------------------
 def run(cmd: list[str], cwd: Path | None = None) -> dict:
-    \"\"\"Run a subprocess and capture stdout/stderr safely.\"\"\"
+    """Run a subprocess and capture stdout/stderr safely."""
     try:
         res = subprocess.run(
             cmd, cwd=cwd or PROJECT_ROOT, capture_output=True, text=True, check=True
@@ -52,7 +50,7 @@ def ensure_parent(path: Path):
 
 
 def allowed_path(p: Path) -> bool:
-    \"\"\"Only allow writes under src/, tests/, or docs/ relative to project root.\"\"\"
+    """Only allow writes under src/, tests/, or docs/ relative to project root."""
     allowed_roots = [PROJECT_ROOT / "src", PROJECT_ROOT / "tests", PROJECT_ROOT / "docs"]
     rp = p.resolve()
     for root in allowed_roots:
