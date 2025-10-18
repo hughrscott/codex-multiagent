@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+langgraph
+pytest
+pytest-cov
+ruff
+requests
+python-dotenv
