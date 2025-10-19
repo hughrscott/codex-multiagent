@@ -282,6 +282,51 @@ def oauth_dynamic_client_register():
     # pretend DCR succeeded; Claude won't actually use it in authless mode
     return JSONResponse({"client_id": "dummy", "client_secret": "dummy"}, status_code=200)
 
+# --- add these near the other routes in codex-mcp/mcp_server.py ---
+
+@app.get("/.well-known/oauth-protected-resource")
+def oauth_protected_resource():
+    # Signal "no auth required" to the validator
+    return JSONResponse({"ok": True, "auth": "none"})
+
+@app.get("/.well-known/oauth-authorization-server")
+def oauth_authorization_server():
+    # Minimal metadata; empty endpoints = we are not offering OAuth
+    return JSONResponse({
+        "issuer": "https://codex-multiagent.onrender.com",
+        "authorization_endpoint": "",
+        "token_endpoint": "",
+        "response_types_supported": [],
+        "grant_types_supported": [],
+        "code_challenge_methods_supported": []
+    })
+
+@app.post("/register")
+def oauth_dynamic_client_register():
+    # Pretend DCR succeeded; not used in authless mode
+    return JSONResponse({"client_id": "dummy", "client_secret": "dummy"}, status_code=200)
+
+from fastapi import Response
+
+# Health on root (GET + explicit HEAD)
+@app.get("/")
+def root_ok():
+    return {"ok": True}
+
+@app.head("/")
+def root_head():
+    # some validators only check that HEAD / returns 200
+    return Response(status_code=200)
+
+# Manifest: allow GET/POST/HEAD/OPTIONS explicitly
+@app.api_route("/.well-known/manifest.json", methods=["GET", "POST", "HEAD", "OPTIONS"])
+def manifest():
+    return JSONResponse(MANIFEST_BODY)
+
+@app.options("/.well-known/manifest.json")
+def manifest_options():
+    return Response(status_code=200)
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "3333"))
