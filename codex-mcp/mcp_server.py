@@ -258,6 +258,30 @@ def manifest():
 def manifest_options():
     return JSONResponse({}, status_code=200)
 
+# --- authless mode stubs (return 200 so Claude doesn't fail) ---
+
+@app.get("/.well-known/oauth-protected-resource")
+def oauth_protected_resource():
+    # signal "no auth required"
+    return JSONResponse({"ok": True, "auth": "none"})
+
+@app.get("/.well-known/oauth-authorization-server")
+def oauth_authorization_server():
+    # minimal metadata; empty endpoints = we're not offering OAuth
+    return JSONResponse({
+        "issuer": "https://codex-multiagent.onrender.com",
+        "authorization_endpoint": "",
+        "token_endpoint": "",
+        "response_types_supported": [],
+        "grant_types_supported": [],
+        "code_challenge_methods_supported": []
+    })
+
+@app.post("/register")
+def oauth_dynamic_client_register():
+    # pretend DCR succeeded; Claude won't actually use it in authless mode
+    return JSONResponse({"client_id": "dummy", "client_secret": "dummy"}, status_code=200)
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "3333"))
