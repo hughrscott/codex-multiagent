@@ -181,6 +181,17 @@ def mcp_manifest():
 @app.api_route("/.well-known/manifest.json", methods=["GET", "HEAD", "OPTIONS", "POST"])
 def legacy_manifest():
     return JSONResponse(MCP_MANIFEST)
+# add POST here (was only GET/HEAD/OPTIONS)
+@app.api_route("/.well-known/mcp/manifest.json",
+               methods=["GET", "HEAD", "OPTIONS", "POST"])
+def mcp_manifest():
+    return JSONResponse(MCP_MANIFEST)
+
+# keep the legacy alias in sync
+@app.api_route("/.well-known/manifest.json",
+               methods=["GET", "HEAD", "OPTIONS", "POST"])
+def legacy_manifest():
+    return JSONResponse(MCP_MANIFEST)
 
 if __name__ == "__main__":
     import uvicorn
