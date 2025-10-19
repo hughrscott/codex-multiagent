@@ -173,6 +173,14 @@ async def mcp_endpoint(request: Request):
         return JSONResponse([handle(obj) for obj in payload])
     else:
         return JSONResponse(handle(payload))
+# add POST to both manifests
+@app.api_route("/.well-known/mcp/manifest.json", methods=["GET", "HEAD", "OPTIONS", "POST"])
+def mcp_manifest():
+    return JSONResponse(MCP_MANIFEST)
+
+@app.api_route("/.well-known/manifest.json", methods=["GET", "HEAD", "OPTIONS", "POST"])
+def legacy_manifest():
+    return JSONResponse(MCP_MANIFEST)
 
 if __name__ == "__main__":
     import uvicorn
